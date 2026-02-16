@@ -1,5 +1,5 @@
 // ── Version Verification ──────────────────────────────────────────────
-console.log("First Kitchen v2.0 - Visual Upgrade Initialized");
+console.log("First Kitchen v3.0 - Gameplay Refinement Initialized");
 
 // ── Helpers ──────────────────────────────────────────────────────────
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -15,7 +15,8 @@ const STATE = {
 
 let currentState = STATE.TITLE;
 let currentLevelIndex = 0;
-let completedLevels = new Set(); // Stores level IDs that are passed
+// levelStars: stores { 0: 2, 1: 3 } etc.
+let levelStars = {};
 
 // Game Session State
 let selectedBase = null;
@@ -31,70 +32,93 @@ function computeOutcome() {
 
   if (ingredients.length === 0) return null;
 
-  const avg = (prop) => ingredients.reduce((s, ing) => s + ing[prop], 0) / ingredients.length;
+  const base = INGREDIENTS[selectedBase];
 
+  // Calculate Target Time
+  let timeModifier = 0;
+  for (const id of selectedSupports) {
+    timeModifier += INGREDIENTS[id].timeModifier || 0;
+  }
+
+  const targetTime = clamp(base.idealBaseTime + timeModifier, 0.1, 0.9);
+
+  // Properties
+  const avg = (prop) => ingredients.reduce((s, ing) => s + ing[prop], 0) / ingredients.length;
   const fat_total = avg("fat");
   const acid_total = avg("acid");
   const moisture_total = avg("moisture");
-  const density_total = avg("density");
 
   const t = cookingTime;
 
-  // Doneness
-  const ideal_time = clamp(0.3 + 0.5 * density_total + 0.2 * moisture_total, 0, 1);
-  const doneness = clamp(1 - Math.abs(t - ideal_time), 0, 1);
+  // Doneness: Peaks at targetTime
+  // 85% requirement -> within ~0.15
+  const doneness = clamp(1 - Math.abs(t - targetTime), 0, 1);
 
-  // Taste
+  // Taste: Balance of fat and acid
   const balance = clamp(1 - Math.abs(fat_total - acid_total), 0, 1);
-  const taste = clamp(0.6 * balance + 0.4 * doneness, 0, 1);
+  // Taste score is heavily weighted on balance, but slightly on doneness
+  const taste = clamp(0.7 * balance + 0.3 * doneness, 0, 1);
 
-  // Texture
-  const texture_ideal = clamp(0.4 + 0.4 * moisture_total, 0, 1);
-  const texture = clamp(1 - Math.abs(t - texture_ideal), 0, 1);
+  // Texture: Peaks near targetTime but shifted by moisture
+  // High moisture -> needs slightly MORE time to firm up? Or less? 
+  // Let's say: More moisture shifts ideal texture time slightly later (+ offset)
+  // Low moisture (dry) shifts slightly earlier (- offset)
+  const textureOffset = (moisture_total - 0.5) * 0.15;
+  const textureTarget = clamp(targetTime + textureOffset, 0, 1);
+  const texture = clamp(1 - Math.abs(t - textureTarget), 0, 1);
 
-  // Constraint
+  // Constraint Check
   const level = LEVELS[currentLevelIndex];
-  let constraintScore = 1;
+  let constraintPassed = true;
   if (level.constraint === "vegetarian") {
     const allSelected = [selectedBase, ...selectedSupports];
-    constraintScore = allSelected.some((id) => INGREDIENTS[id].isMeat) ? 0 : 1;
+    constraintPassed = !allSelected.some((id) => INGREDIENTS[id].isMeat);
   } else if (level.constraint === "lowfat") {
-    constraintScore = clamp(1 - fat_total, 0, 1);
+    constraintPassed = fat_total < 0.4; // simpler threshold
   }
 
-  return { taste, texture, doneness, constraint: constraintScore };
+  // Star Calculation
+  let stars = 0;
+  if (taste >= 0.85) stars++;
+  if (texture >= 0.85) stars++;
+  if (doneness >= 0.85) stars++;
+
+  // If constraint fails, you get 0 stars (hard fail)
+  if (!constraintPassed) stars = 0;
+
+  return { taste, texture, doneness, stars, constraintPassed };
 }
 
 function checkWin(outcome) {
   if (!outcome) return false;
-  const level = LEVELS[currentLevelIndex];
-  const constraintPass = level.constraint === null || outcome.constraint >= 0.9;
-  return outcome.taste >= 0.9 && outcome.doneness >= 0.9 && outcome.texture >= 0.9 && constraintPass;
+  // Pass condition: 2 Stars AND Constraint Passed
+  return outcome.stars >= 2 && outcome.constraintPassed;
 }
 
 // ── Rendering & Interaction ──────────────────────────────────────────
 
 function init() {
+  // Load saved progress if any
+  const saved = localStorage.getItem('firstKitchen_stars');
+  if (saved) {
+    try { levelStars = JSON.parse(saved); } catch (e) { }
+  }
   render();
+}
+
+function saveProgress() {
+  localStorage.setItem('firstKitchen_stars', JSON.stringify(levelStars));
 }
 
 function render() {
   const app = $("#app");
-  app.className = currentState.toLowerCase(); // handy for CSS scoping
+  app.className = currentState.toLowerCase();
 
   switch (currentState) {
-    case STATE.TITLE:
-      renderTitle(app);
-      break;
-    case STATE.MENU:
-      renderMenu(app);
-      break;
-    case STATE.PLAY:
-      renderPlay(app);
-      break;
-    case STATE.RESULT:
-      renderResult(app);
-      break;
+    case STATE.TITLE: renderTitle(app); break;
+    case STATE.MENU: renderMenu(app); break;
+    case STATE.PLAY: renderPlay(app); break;
+    case STATE.RESULT: renderResult(app); break;
   }
 }
 
@@ -110,7 +134,7 @@ function renderTitle(app) {
       <div class="instructions">
         <p>No recipes. just experimentation.</p>
         <p>Balance <strong>Fat</strong> & <strong>Acid</strong>.</p>
-        <p>Match <strong>Time</strong> to <strong>Density</strong>.</p>
+        <p>Match <strong>Cooking Time</strong> to Ingredients.</p>
       </div>
       <button class="btn-primary" onclick="setState('${STATE.MENU}')">Start Cooking</button>
     </div>
@@ -122,17 +146,27 @@ function renderMenu(app) {
   let gridHtml = '<div class="level-grid">';
 
   LEVELS.forEach((level, idx) => {
-    const isLocked = idx > 0 && !completedLevels.has(idx - 1);
-    const isCompleted = completedLevels.has(idx);
-    const statusClass = isLocked ? 'locked' : (isCompleted ? 'completed' : 'unlocked');
+    const prevLevelStars = levelStars[idx - 1];
+    // Unlocked if first level (0) OR previous level passed (>= 2 stars)
+    const isUnlocked = idx === 0 || (levelStars[idx - 1] >= 2);
+    const earnedStars = levelStars[idx] || 0;
+
+    let starDisplay = '';
+    if (earnedStars > 0) {
+      starDisplay = '⭐'.repeat(earnedStars);
+    }
+
+    // Status class
+    let statusClass = isUnlocked ? 'unlocked' : 'locked';
+    if (earnedStars >= 2) statusClass += ' passed';
 
     gridHtml += `
-      <div class="level-card ${statusClass}" onclick="${isLocked ? '' : `startLevel(${idx})`}">
+      <div class="level-card ${statusClass}" onclick="${isUnlocked ? `startLevel(${idx})` : ''}">
         <div class="level-num">${idx + 1}</div>
         <div class="level-info">
           <h3>${level.title}</h3>
-          ${isCompleted ? '<span class="star">★ Completed</span>' : ''}
-          ${isLocked ? '<span class="lock">🔒 Locked</span>' : ''}
+          ${starDisplay ? `<div class="star-rating">${starDisplay}</div>` : ''}
+          ${!isUnlocked ? '<span class="lock">🔒 Locked</span>' : ''}
         </div>
       </div>
     `;
@@ -149,11 +183,11 @@ function renderMenu(app) {
   `;
 }
 
-// ── Play Screen (The Kitchen)
+// ── Play Screen
 function renderPlay(app) {
   const level = LEVELS[currentLevelIndex];
 
-  // Ingredients List
+  // Ingredients List with Tags
   let ingredientsHtml = '<div class="shelf">';
   level.availableIngredients.forEach(id => {
     const ing = INGREDIENTS[id];
@@ -161,11 +195,13 @@ function renderPlay(app) {
     const isSupport = selectedSupports.has(id);
     const inSkillet = isBase || isSupport;
 
+    const tagsHtml = (ing.tags || []).map(t => `<span class="tag ${t.toLowerCase()}">${t}</span>`).join('');
+
     ingredientsHtml += `
       <div class="ingredient-item ${inSkillet ? 'in-use' : ''}" onclick="toggleIngredient('${id}')">
         <div class="emoji">${ing.emoji}</div>
         <div class="name">${ing.name}</div>
-        <div class="stats">F${ing.fat} A${ing.acid} D${ing.density}</div>
+        <div class="tags">${tagsHtml}</div>
       </div>
     `;
   });
@@ -209,7 +245,7 @@ function renderPlay(app) {
              </div>
           </div>
           <input type="range" class="clock-slider" min="0" max="100" value="${cookingTime * 100}" oninput="updateTime(this.value)">
-          <div class="time-label" style="color: ${timeColor}">${Math.round(cookingTime * 100)}% Heat</div>
+          <div class="time-label" style="color: ${timeColor}">Cooking Time matches Density</div>
         </div>
       </div>
 
@@ -225,53 +261,59 @@ function renderPlay(app) {
 
 // ── Result Screen
 function renderResult(app) {
-  const outcome = computeOutcome(); // Recompute or use cached
+  const outcome = computeOutcome();
   const won = checkWin(outcome);
   const level = LEVELS[currentLevelIndex];
 
-  // Save progress if won
-  if (won) {
-    completedLevels.add(currentLevelIndex);
+  // Save progress if better score
+  const currentBest = levelStars[currentLevelIndex] || 0;
+  if (outcome.stars > currentBest) {
+    levelStars[currentLevelIndex] = outcome.stars;
+    saveProgress();
   }
 
-  const renderBar = (label, val, limit = 0.9) => {
+  const renderBar = (label, val, passed) => {
     const pct = Math.round(val * 100);
-    const passed = val >= limit;
     return `
       <div class="result-row">
         <span class="label">${label}</span>
         <div class="bar-bg">
           <div class="bar-fill ${passed ? 'pass' : 'fail'}" style="width: ${pct}%"></div>
         </div>
-        <span class="score">${pct}%</span>
+        <span class="score">${passed ? '⭐' : ''} ${pct}%</span>
       </div>
     `;
   };
 
+  let feedback = "";
+  if (outcome.stars === 3) feedback = "Perfection! A true chef's kiss. 👨‍🍳";
+  else if (outcome.stars === 2) feedback = "Delicious! Good enough to serve.";
+  else if (!outcome.constraintPassed) feedback = "Dish failed: Dietary constraint not met!";
+  else feedback = "Undercooked or unbalanced. Check your timing and ingredients.";
+
   let html = `
     <div class="screen result-screen">
       <div class="result-card ${won ? 'win' : 'lose'}">
-        <h2>${won ? 'Delicious! 🌟' : 'Needs Work... 🤔'}</h2>
+        <div class="stars-earned">
+            ${'⭐'.repeat(outcome.stars)}${'☆'.repeat(3 - outcome.stars)}
+        </div>
+        <h2>${won ? 'Level Complete!' : 'Try Again'}</h2>
         
         <div class="bars">
-          ${renderBar('Taste', outcome.taste)}
-          ${renderBar('Texture', outcome.texture)}
-          ${renderBar('Doneness', outcome.doneness)}
-          ${level.constraint ? renderBar('Dietary', outcome.constraint) : ''}
+          ${renderBar('Taste', outcome.taste, outcome.taste >= 0.85)}
+          ${renderBar('Texture', outcome.texture, outcome.texture >= 0.85)}
+          ${renderBar('Doneness', outcome.doneness, outcome.doneness >= 0.85)}
         </div>
+        
+        ${!outcome.constraintPassed ? `<div class="constraint-fail">⚠️ Failed Constraint: ${level.constraint}</div>` : ''}
 
-        <div class="feedback">
-          ${won
-      ? "<p>Perfect balance! You've mastered this dish.</p>"
-      : "<p>Check the red bars. Try adjusting time or ingredients.</p>"}
-        </div>
+        <div class="feedback"><p>${feedback}</p></div>
 
         <div class="actions">
-          <button class="btn-secondary" onclick="retryLevel()">Try Again</button>
           ${won
       ? `<button class="btn-primary" onclick="nextLevel()">Next Level →</button>`
-      : ''}
-          <button class="btn-text" onclick="setState('${STATE.MENU}')">Back to Menu</button>
+      : `<button class="btn-primary" onclick="retryLevel()">Try Again</button>`}
+          <button class="btn-secondary" onclick="setState('${STATE.MENU}')">Back to Menu</button>
         </div>
       </div>
     </div>
@@ -289,7 +331,6 @@ window.setState = (newState) => {
 
 window.startLevel = (idx) => {
   currentLevelIndex = idx;
-  // Reset session
   selectedBase = null;
   selectedSupports.clear();
   cookingTime = 0.5;
@@ -297,34 +338,22 @@ window.startLevel = (idx) => {
 };
 
 window.toggleIngredient = (id) => {
-  // logic: if it's a base ingredient, swap it. if support, toggle it.
-  // wait, we need to know if the clicked ID is intended as base or support?
-  // Easier: if no base selected, first click becomes base (if valid?). 
-  // Actually, let's keep it simple: Click logic based on type?
+  const ing = INGREDIENTS[id];
+  const isBaseType = (ing.tags || []).includes('Base');
 
-  // Re-reading PRD: Player selects one base, any supports.
-  // My Logic: If I click chicken (base), it sets base. If I click lemon (support), it sets support.
-  // But how does user know?
-  // Let's infer: Bases are Meat/Tofu. Supports are Oil/Lemon/Veg? 
-  // No, Tofu can be chunks. 
-  // Let's stick to the previous logic: We need to know what role interally.
-  // But for UI simplicity, let's say: 
-  // - If it's already selected, remove it.
-  // - If it's not selected:
-  //   - If current base is null, make it base.
-  //   - If base exists, make it support.
-  //   Wait, that's confusing.
-  // Better: Just check if it's the current base -> deselect. If it's in support -> remove.
-  // If adding: If base is null -> make base. Else add to support. (Player can swap base by deselecting first).
-
-  if (selectedBase === id) {
-    selectedBase = null;
-  } else if (selectedSupports.has(id)) {
-    selectedSupports.delete(id);
+  if (isBaseType) {
+    // If it's a Base type, select it as the Base (replacing previous)
+    // If clicking the current base, maybe deselect? Or just keep it selected?
+    // Let's allow deselecting
+    if (selectedBase === id) {
+      selectedBase = null;
+    } else {
+      selectedBase = id;
+    }
   } else {
-    // Adding
-    if (selectedBase === null) {
-      selectedBase = id; // First pick is base
+    // It's a support ingredient
+    if (selectedSupports.has(id)) {
+      selectedSupports.delete(id);
     } else {
       selectedSupports.add(id);
     }
@@ -335,7 +364,6 @@ window.toggleIngredient = (id) => {
 window.updateTime = (val) => {
   cookingTime = parseInt(val, 10) / 100;
 
-  // Optimize: Update only the relevant DOM elements
   const rotation = cookingTime * 360;
   const timeColor = cookingTime < 0.4 ? '#3b82f6' : (cookingTime > 0.8 ? '#ef4444' : '#f59e0b');
 
@@ -343,10 +371,8 @@ window.updateTime = (val) => {
   if (hand) hand.style.transform = `rotate(${rotation}deg)`;
 
   const label = $(".time-label");
-  if (label) {
-    label.innerText = `${Math.round(cookingTime * 100)}% Heat`;
-    label.style.color = timeColor;
-  }
+  /* Keep generic label, maybe update color only? */
+  // label.innerText = `${Math.round(cookingTime * 100)}% Heat`; // Removed percent as requested
 };
 
 window.cook = () => {
@@ -358,19 +384,15 @@ window.cook = () => {
 };
 
 window.retryLevel = () => {
-  // Keep settings, just go back
-  setState(STATE.PLAY);
+  setState(STATE.PLAY); // Keep ingredients selected for quick retry
 };
 
 window.nextLevel = () => {
   if (currentLevelIndex < LEVELS.length - 1) {
     startLevel(currentLevelIndex + 1);
   } else {
-    // Game Over / Win
-    completedLevels.add(currentLevelIndex);
     setState(STATE.MENU);
   }
 };
 
-// ── Boot ─────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", init);

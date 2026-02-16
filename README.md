@@ -10,11 +10,11 @@ A small, playable web game designed to demonstrate how players construct mental 
 ## 🍳 Overview
 "First Kitchen" is an educational prototype that focuses on cognitive learning rather than memorization. Players experiment with base ingredients, support ingredients, and cooking times to achieve the perfect balance of taste, texture, and doneness.
 
-### New in v2.0: Visual Upgrade!
--   **Interactive Skillet**: Visualize your ingredients as they are tossed into the pan.
--   **Analog Clock**: Set cooking time with a rotating clock hand.
--   **Menu System**: Track your progress with a level select screen.
--   **Emoji Ingredients**: Fun, clear visuals for all food items.
+### New in v3.0: Gameplay Refinement
+-   **Star Scoring**: Earn up to 3 stars per level (Taste, Texture, Doneness). Pass with 2 stars.
+-   **Strategic Timing**: Ideal cooking time is based on your Base Ingredient + supporting modifiers.
+-   **Tradeoffs**: Find the "sweet spot" where Doneness and Texture align.
+-   **Clarity**: Ingredients are tagged (Base, Acid, Fat) to help you learn.
 
 ### Learning Objectives
 1.  **Understand Interactions**: Recognize how ingredient properties (fat, acid, moisture, density) interact with cooking time.
@@ -26,7 +26,7 @@ A small, playable web game designed to demonstrate how players construct mental 
 2.  **Add Support**: choose optional support ingredients (e.g., Lemon 🍋, Oil 🫒) to balance the dish.
 3.  **Adjust Time**: Drag the clock hand to set the cooking duration. Watch the background shift from cool to hot!
 4.  **Cook**: Evaluate the results via four outcome bars (Taste, Texture, Doneness, and Constraints).
-5.  **Iterate**: Adjust and retry until you score **≥ 90%** on all metrics to unlock the next level.
+5.  **Iterate**: Adjust and retry until you score **≥ 2 Stars** to unlock the next level.
 
 ## 🛠️ Tech Stack
 -   **HTML5 / CSS3**: Vanilla structure and styling with a modern dark theme and CSS animations.
