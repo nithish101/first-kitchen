@@ -1,0 +1,263 @@
+/* ── Imports & Reset ───────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Warm cooking palette */
+  --bg:        #0f1117;
+  --surface:   #1a1d27;
+  --surface-2: #242836;
+  --border:    #2e3345;
+  --text:      #e8e6e3;
+  --text-dim:  #9ca3af;
+  --accent:    #f59e0b;
+  --accent-2:  #fb923c;
+  --green:     #10b981;
+  --red:       #ef4444;
+  --purple:    #8b5cf6;
+  --radius:    12px;
+}
+
+html { font-size: 16px; }
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 2rem 1rem 4rem;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  max-width: 580px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Level Header ─────────────────────────────────────────────────── */
+.level-header {
+  text-align: center;
+  padding-bottom: 0.5rem;
+}
+.level-header h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.level-desc {
+  color: var(--text-dim);
+  font-size: 0.92rem;
+  margin-top: 0.4rem;
+  line-height: 1.5;
+}
+
+/* ── Panels ───────────────────────────────────────────────────────── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+.panel h2 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-bottom: 1rem;
+}
+.panel h3 {
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.6rem;
+  color: var(--text);
+}
+.hint {
+  font-weight: 400;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+/* ── Ingredient cards ─────────────────────────────────────────────── */
+.ingredient-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.ingredient-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  min-width: 100px;
+  flex: 1 1 100px;
+  text-align: center;
+}
+.ingredient-card input { display: none; }
+.ingredient-card:hover { border-color: var(--accent); }
+.ingredient-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+.ingredient-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.ingredient-stats {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+
+.support-group { margin-top: 0.25rem; }
+
+/* ── Time slider ──────────────────────────────────────────────────── */
+.slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.slider-label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+#timeSlider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  outline: none;
+}
+#timeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  cursor: pointer;
+  border: 2px solid var(--surface);
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.35);
+}
+#timeSlider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  cursor: pointer;
+  border: 2px solid var(--surface);
+}
+.time-value {
+  text-align: center;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 0.5rem;
+}
+
+/* ── Cook button ──────────────────────────────────────────────────── */
+.cook-btn {
+  width: 100%;
+  padding: 0.9rem;
+  border: none;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #111;
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.cook-btn:hover { opacity: 0.92; }
+.cook-btn:active { transform: scale(0.98); }
+.cook-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Result bars ──────────────────────────────────────────────────── */
+.results-panel { display: flex; flex-direction: column; gap: 0.75rem; }
+.results-panel h2 { margin-bottom: 0.25rem; }
+.result-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 48px;
+  align-items: center;
+  gap: 0.6rem;
+}
+.result-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+.bar-track {
+  height: 10px;
+  background: var(--surface-2);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.35s ease;
+}
+.bar-low { opacity: 0.65; }
+.bar-good { opacity: 1; }
+.result-pct {
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Next Level button ────────────────────────────────────────────── */
+.next-btn {
+  width: 100%;
+  padding: 0.85rem;
+  border: 2px solid var(--green);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--green);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.next-btn:hover {
+  background: var(--green);
+  color: #111;
+}
+
+/* ── Congrats ─────────────────────────────────────────────────────── */
+.congrats {
+  text-align: center;
+  font-size: 1rem;
+  color: var(--green);
+  font-weight: 600;
+  padding: 1rem 0;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .level-header h1 { font-size: 1.3rem; }
+  .result-row { grid-template-columns: 100px 1fr 40px; }
+  .ingredient-card { min-width: 80px; padding: 0.5rem 0.6rem; }
+}
