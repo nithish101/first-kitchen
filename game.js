@@ -64,7 +64,8 @@ function computeOutcome() {
   let doneness = safetyFailure ? 0 : calcScore(targetTime);
 
   // Taste: Balance + Doneness
-  const balance = clamp(1 - Math.abs(fat_total - acid_total), 0, 1);
+  // New Formula: Balance penalty reduced by 50% to make high scores easier
+  const balance = clamp(1 - Math.abs(fat_total - acid_total) * 0.5, 0, 1);
   const taste = clamp(0.6 * balance + 0.4 * doneness, 0, 1);
 
   // Texture: 
@@ -181,6 +182,35 @@ function renderMenu(app) {
 }
 
 // ── Play Screen
+function getHintHtml() {
+  if (!showingHint) return '';
+  if (!selectedBase) return `<div class="hint-box">Pick a Base first!</div>`;
+
+  let timeModifier = 0;
+  for (const id of selectedSupports) timeModifier += INGREDIENTS[id].timeModifier || 0;
+  const target = clamp(INGREDIENTS[selectedBase].idealBaseTime + timeModifier, 5, MAX_COOK_TIME - 5);
+
+  const diff = cookingTime - target;
+  const absDiff = Math.abs(diff);
+
+  if (absDiff <= 2) {
+    return `<div class="hint-box success">✅</div>`;
+  }
+
+  let arrowDir = diff < 0 ? '→' : '←';
+  let arrowColor = '#22c55e';
+  let arrowSize = '1.2rem';
+
+  if (absDiff > 10) { arrowColor = '#ef4444'; arrowSize = '2rem'; }
+  else if (absDiff > 5) { arrowColor = '#eab308'; arrowSize = '1.6rem'; }
+
+  return `
+    <div class="hint-arrow" style="color: ${arrowColor}; font-size: ${arrowSize}">
+       ${arrowDir}
+    </div>
+  `;
+}
+
 function renderPlay(app) {
   const level = LEVELS[currentLevelIndex];
 
@@ -215,36 +245,6 @@ function renderPlay(app) {
   const rotation = (cookingTime / MAX_COOK_TIME) * 360;
   const timeColor = cookingTime < 10 ? '#3b82f6' : (cookingTime > 20 ? '#ef4444' : '#f59e0b');
 
-  // Hint Logic
-  let hintHtml = '';
-  if (showingHint && selectedBase) {
-    let timeModifier = 0;
-    for (const id of selectedSupports) timeModifier += INGREDIENTS[id].timeModifier || 0;
-    const target = clamp(INGREDIENTS[selectedBase].idealBaseTime + timeModifier, 5, MAX_COOK_TIME - 5);
-
-    const diff = cookingTime - target;
-    const absDiff = Math.abs(diff);
-
-    let arrowDir = diff < 0 ? '→' : '←';
-    let arrowColor = '#22c55e';
-    let arrowSize = '1.2rem';
-
-    if (absDiff <= 2) {
-      hintHtml = `<div class="hint-box success">✅ Good!</div>`;
-    } else {
-      if (absDiff > 10) { arrowColor = '#ef4444'; arrowSize = '2rem'; }
-      else if (absDiff > 5) { arrowColor = '#eab308'; arrowSize = '1.6rem'; }
-
-      hintHtml = `
-        <div class="hint-arrow" style="color: ${arrowColor}; font-size: ${arrowSize}">
-           ${arrowDir}
-        </div>
-      `;
-    }
-  } else if (showingHint && !selectedBase) {
-    hintHtml = `<div class="hint-box">Pick a Base first!</div>`;
-  }
-
   app.innerHTML = `
     <div class="screen play-screen">
       <header class="play-header">
@@ -278,7 +278,7 @@ function renderPlay(app) {
           </div>
           
           <div class="time-label" style="color: ${timeColor}">${Math.round(cookingTime)} min</div>
-          ${hintHtml}
+          <div id="hint-container">${getHintHtml()}</div>
         </div>
       </div>
 
@@ -403,7 +403,10 @@ window.updateTime = (val) => {
     label.style.color = timeColor;
   }
 
-  if (showingHint) render();
+  if (showingHint) {
+    const hintContainer = $("#hint-container");
+    if (hintContainer) hintContainer.innerHTML = getHintHtml();
+  }
 };
 
 window.toggleHint = () => {
