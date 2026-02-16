@@ -1,3 +1,6 @@
+// ── Version Verification ──────────────────────────────────────────────
+console.log("First Kitchen v2.0 - Visual Upgrade Initialized");
+
 // ── Helpers ──────────────────────────────────────────────────────────
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const $ = (sel) => document.querySelector(sel);
