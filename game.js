@@ -349,6 +349,12 @@ function renderResult(app) {
   else if (outcome.stars === 2) feedback = "Delicious! Good enough to serve.";
   else feedback = "Undercooked or unbalanced. Check your timing and ingredients.";
 
+  const constraintMessages = {
+    vegetarian: "Vegetarian (No Meat)",
+    lowfat: "Low Fat (< 40% Fat)"
+  };
+  const constraintMsg = constraintMessages[level.constraint] || level.constraint;
+
   let html = `
     <div class="screen result-screen">
       <div class="result-card ${won ? 'win' : 'lose'}">
@@ -364,8 +370,8 @@ function renderResult(app) {
         </div>
         
         ${outcome.safetyFailure ? `<div class="constraint-fail">🚫 ${outcome.safetyFailure}</div>` : ''}
-        ${outcome.missingRequiredTag ? `<div class="constraint-fail">⚠️ Missing: ${outcome.missingRequiredTag}</div>` : ''}
-        ${!outcome.constraintPassed && !outcome.safetyFailure && !outcome.missingRequiredTag ? `<div class="constraint-fail">⚠️ Failed Constraint: ${level.constraint}</div>` : ''}
+        ${outcome.missingRequiredTag ? `<div class="constraint-fail">⚠️ Failed Goal: You must add ${outcome.missingRequiredTag}</div>` : ''}
+        ${!outcome.constraintPassed ? `<div class="constraint-fail">⚠️ Failed Constraint: ${constraintMsg}</div>` : ''}
 
         <div class="feedback">
            <p>${feedback}</p>
