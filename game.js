@@ -311,7 +311,8 @@ function renderResult(app) {
 
         <div class="actions">
           ${won
-      ? `<button class="btn-primary" onclick="nextLevel()">Next Level →</button>`
+      ? `<button class="btn-primary" onclick="nextLevel()">Next Level →</button>
+               <button class="btn-secondary" onclick="retryLevel()">Replay Level ↺</button>`
       : `<button class="btn-primary" onclick="retryLevel()">Try Again</button>`}
           <button class="btn-secondary" onclick="setState('${STATE.MENU}')">Back to Menu</button>
         </div>
