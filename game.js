@@ -1,5 +1,5 @@
 // ── Version Verification ──────────────────────────────────────────────
-console.log("First Kitchen v3.0 - Gameplay Refinement Initialized");
+console.log("First Kitchen v4.0 - Ease of Use Initialized");
 
 // ── Helpers ──────────────────────────────────────────────────────────
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -15,14 +15,13 @@ const STATE = {
 
 let currentState = STATE.TITLE;
 let currentLevelIndex = 0;
-// levelStars: stores { 0: 2, 1: 3 } etc.
 let levelStars = {};
 
 // Game Session State
 let selectedBase = null;
 let selectedSupports = new Set();
-let cookingTime = 0.5; // 0.0 to 1.0
-let lastOutcome = null;
+let cookingTime = 15; // Minutes (0 to 30)
+let showingHint = false;
 
 // ── Outcome Logic ───────────────────────────────────────────────────
 function computeOutcome() {
@@ -34,13 +33,14 @@ function computeOutcome() {
 
   const base = INGREDIENTS[selectedBase];
 
-  // Calculate Target Time
+  // Calculate Target Time (Base + Modifiers)
   let timeModifier = 0;
   for (const id of selectedSupports) {
     timeModifier += INGREDIENTS[id].timeModifier || 0;
   }
 
-  const targetTime = clamp(base.idealBaseTime + timeModifier, 0.1, 0.9);
+  // Clamp target between 5 and MAX-5 to keep it playable
+  const targetTime = clamp(base.idealBaseTime + timeModifier, 5, MAX_COOK_TIME - 5);
 
   // Properties
   const avg = (prop) => ingredients.reduce((s, ing) => s + ing[prop], 0) / ingredients.length;
@@ -50,22 +50,29 @@ function computeOutcome() {
 
   const t = cookingTime;
 
-  // Doneness: Peaks at targetTime
-  // 85% requirement -> within ~0.15
-  const doneness = clamp(1 - Math.abs(t - targetTime), 0, 1);
+  // ── New Easier Scoring Logic ──
+  // Formula: Perfect window of +/- 2 minutes gives 100%.
+  // Outside that, score decays by 5% per minute.
 
-  // Taste: Balance of fat and acid
+  const calcScore = (target) => {
+    const error = Math.abs(t - target);
+    if (error <= 2) return 1.0;
+    return Math.max(0, 1.0 - (error - 2) * 0.05);
+  };
+
+  // Doneness: Peaks at targetTime
+  const doneness = calcScore(targetTime);
+
+  // Taste: Balance of fat and acid (unchanged)
   const balance = clamp(1 - Math.abs(fat_total - acid_total), 0, 1);
-  // Taste score is heavily weighted on balance, but slightly on doneness
-  const taste = clamp(0.7 * balance + 0.3 * doneness, 0, 1);
+  const taste = clamp(0.6 * balance + 0.4 * doneness, 0, 1);
 
   // Texture: Peaks near targetTime but shifted by moisture
-  // High moisture -> needs slightly MORE time to firm up? Or less? 
-  // Let's say: More moisture shifts ideal texture time slightly later (+ offset)
-  // Low moisture (dry) shifts slightly earlier (- offset)
-  const textureOffset = (moisture_total - 0.5) * 0.15;
-  const textureTarget = clamp(targetTime + textureOffset, 0, 1);
-  const texture = clamp(1 - Math.abs(t - textureTarget), 0, 1);
+  // More moisture -> needs more time (+ up to 2.5m)
+  // Less moisture -> needs less time (- up to 2.5m)
+  const textureOffset = (moisture_total - 0.5) * 5;
+  const textureTarget = targetTime + textureOffset;
+  const texture = calcScore(textureTarget);
 
   // Constraint Check
   const level = LEVELS[currentLevelIndex];
@@ -74,7 +81,7 @@ function computeOutcome() {
     const allSelected = [selectedBase, ...selectedSupports];
     constraintPassed = !allSelected.some((id) => INGREDIENTS[id].isMeat);
   } else if (level.constraint === "lowfat") {
-    constraintPassed = fat_total < 0.4; // simpler threshold
+    constraintPassed = fat_total < 0.4;
   }
 
   // Star Calculation
@@ -83,22 +90,20 @@ function computeOutcome() {
   if (texture >= 0.85) stars++;
   if (doneness >= 0.85) stars++;
 
-  // If constraint fails, you get 0 stars (hard fail)
+  // Hard fail if constraint failed
   if (!constraintPassed) stars = 0;
 
-  return { taste, texture, doneness, stars, constraintPassed };
+  return { taste, texture, doneness, stars, constraintPassed, targetTime };
 }
 
 function checkWin(outcome) {
   if (!outcome) return false;
-  // Pass condition: 2 Stars AND Constraint Passed
   return outcome.stars >= 2 && outcome.constraintPassed;
 }
 
-// ── Rendering & Interaction ──────────────────────────────────────────
+// ── Rendering ────────────────────────────────────────────────────────
 
 function init() {
-  // Load saved progress if any
   const saved = localStorage.getItem('firstKitchen_stars');
   if (saved) {
     try { levelStars = JSON.parse(saved); } catch (e) { }
@@ -147,16 +152,10 @@ function renderMenu(app) {
 
   LEVELS.forEach((level, idx) => {
     const prevLevelStars = levelStars[idx - 1];
-    // Unlocked if first level (0) OR previous level passed (>= 2 stars)
     const isUnlocked = idx === 0 || (levelStars[idx - 1] >= 2);
     const earnedStars = levelStars[idx] || 0;
 
-    let starDisplay = '';
-    if (earnedStars > 0) {
-      starDisplay = '⭐'.repeat(earnedStars);
-    }
-
-    // Status class
+    let starDisplay = earnedStars > 0 ? '⭐'.repeat(earnedStars) : '';
     let statusClass = isUnlocked ? 'unlocked' : 'locked';
     if (earnedStars >= 2) statusClass += ' passed';
 
@@ -187,7 +186,7 @@ function renderMenu(app) {
 function renderPlay(app) {
   const level = LEVELS[currentLevelIndex];
 
-  // Ingredients List with Tags
+  // Ingredients List
   let ingredientsHtml = '<div class="shelf">';
   level.availableIngredients.forEach(id => {
     const ing = INGREDIENTS[id];
@@ -215,8 +214,39 @@ function renderPlay(app) {
   });
 
   // Clock Visualization
-  const rotation = cookingTime * 360;
-  const timeColor = cookingTime < 0.4 ? '#3b82f6' : (cookingTime > 0.8 ? '#ef4444' : '#f59e0b');
+  const rotation = (cookingTime / MAX_COOK_TIME) * 360;
+  const timeColor = cookingTime < 10 ? '#3b82f6' : (cookingTime > 20 ? '#ef4444' : '#f59e0b');
+
+  // Hint Logic
+  let hintHtml = '';
+  if (showingHint && selectedBase) {
+    // Avoid recomputing entire outcome just for target, simpler:
+    let timeModifier = 0;
+    for (const id of selectedSupports) timeModifier += INGREDIENTS[id].timeModifier || 0;
+    const target = clamp(INGREDIENTS[selectedBase].idealBaseTime + timeModifier, 5, MAX_COOK_TIME - 5);
+
+    const diff = cookingTime - target;
+    const absDiff = Math.abs(diff);
+
+    let arrowDir = diff < 0 ? '→' : '←'; // Need more time? Right. Less? Left.
+    let arrowColor = '#22c55e'; // Green
+    let arrowSize = '1.2rem';
+
+    if (absDiff <= 2) {
+      hintHtml = `<div class="hint-box success">✅ Good!</div>`;
+    } else {
+      if (absDiff > 10) { arrowColor = '#ef4444'; arrowSize = '2rem'; } // Red Big
+      else if (absDiff > 5) { arrowColor = '#eab308'; arrowSize = '1.6rem'; } // Yellow Med
+
+      hintHtml = `
+        <div class="hint-arrow" style="color: ${arrowColor}; font-size: ${arrowSize}">
+           ${arrowDir}
+        </div>
+      `;
+    }
+  } else if (showingHint && !selectedBase) {
+    hintHtml = `<div class="hint-box">Pick a Base first!</div>`;
+  }
 
   app.innerHTML = `
     <div class="screen play-screen">
@@ -244,8 +274,14 @@ function renderPlay(app) {
                 <div class="knob"></div>
              </div>
           </div>
-          <input type="range" class="clock-slider" min="0" max="100" value="${cookingTime * 100}" oninput="updateTime(this.value)">
-          <div class="time-label" style="color: ${timeColor}">Cooking Time matches Density</div>
+          
+          <div class="controls-row">
+            <input type="range" class="clock-slider" min="0" max="${MAX_COOK_TIME}" step="1" value="${cookingTime}" oninput="updateTime(this.value)">
+            <button class="btn-hint" onclick="toggleHint()" title="Need a hint?">💡</button>
+          </div>
+          
+          <div class="time-label" style="color: ${timeColor}">${Math.round(cookingTime)} min</div>
+          ${hintHtml}
         </div>
       </div>
 
@@ -265,9 +301,7 @@ function renderResult(app) {
   const won = checkWin(outcome);
   const level = LEVELS[currentLevelIndex];
 
-  // Save progress if better score
-  const currentBest = levelStars[currentLevelIndex] || 0;
-  if (outcome.stars > currentBest) {
+  if (outcome.stars > (levelStars[currentLevelIndex] || 0)) {
     levelStars[currentLevelIndex] = outcome.stars;
     saveProgress();
   }
@@ -307,7 +341,10 @@ function renderResult(app) {
         
         ${!outcome.constraintPassed ? `<div class="constraint-fail">⚠️ Failed Constraint: ${level.constraint}</div>` : ''}
 
-        <div class="feedback"><p>${feedback}</p></div>
+        <div class="feedback">
+           <p>${feedback}</p>
+           <p class="stats-detail">Target Time: ~${Math.round(outcome.targetTime)} min</p>
+        </div>
 
         <div class="actions">
           ${won
@@ -322,7 +359,6 @@ function renderResult(app) {
   app.innerHTML = html;
 }
 
-
 // ── Actions ──────────────────────────────────────────────────────────
 
 window.setState = (newState) => {
@@ -334,7 +370,8 @@ window.startLevel = (idx) => {
   currentLevelIndex = idx;
   selectedBase = null;
   selectedSupports.clear();
-  cookingTime = 0.5;
+  cookingTime = 15;
+  showingHint = false;
   setState(STATE.PLAY);
 };
 
@@ -343,37 +380,37 @@ window.toggleIngredient = (id) => {
   const isBaseType = (ing.tags || []).includes('Base');
 
   if (isBaseType) {
-    // If it's a Base type, select it as the Base (replacing previous)
-    // If clicking the current base, maybe deselect? Or just keep it selected?
-    // Let's allow deselecting
-    if (selectedBase === id) {
-      selectedBase = null;
-    } else {
-      selectedBase = id;
-    }
+    if (selectedBase === id) selectedBase = null;
+    else selectedBase = id;
   } else {
-    // It's a support ingredient
-    if (selectedSupports.has(id)) {
-      selectedSupports.delete(id);
-    } else {
-      selectedSupports.add(id);
-    }
+    if (selectedSupports.has(id)) selectedSupports.delete(id);
+    else selectedSupports.add(id);
   }
   render();
 };
 
 window.updateTime = (val) => {
-  cookingTime = parseInt(val, 10) / 100;
+  cookingTime = parseInt(val, 10); // Minutes
 
-  const rotation = cookingTime * 360;
-  const timeColor = cookingTime < 0.4 ? '#3b82f6' : (cookingTime > 0.8 ? '#ef4444' : '#f59e0b');
+  const rotation = (cookingTime / MAX_COOK_TIME) * 360;
+  const timeColor = cookingTime < 10 ? '#3b82f6' : (cookingTime > 20 ? '#ef4444' : '#f59e0b');
 
   const hand = $(".hand-container");
   if (hand) hand.style.transform = `rotate(${rotation}deg)`;
 
   const label = $(".time-label");
-  /* Keep generic label, maybe update color only? */
-  // label.innerText = `${Math.round(cookingTime * 100)}% Heat`; // Removed percent as requested
+  if (label) {
+    label.innerText = `${Math.round(cookingTime)} min`;
+    label.style.color = timeColor;
+  }
+
+  // Update hint in real-time if visible
+  if (showingHint) render(); // Re-render to update hint arrow
+};
+
+window.toggleHint = () => {
+  showingHint = !showingHint;
+  render();
 };
 
 window.cook = () => {
@@ -385,7 +422,7 @@ window.cook = () => {
 };
 
 window.retryLevel = () => {
-  setState(STATE.PLAY); // Keep ingredients selected for quick retry
+  setState(STATE.PLAY);
 };
 
 window.nextLevel = () => {
