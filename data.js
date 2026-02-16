@@ -20,6 +20,22 @@ const INGREDIENTS = {
     idealBaseTime: 15,
     timeModifier: 0
   },
+  beef: {
+    name: "Beef", emoji: "🥩",
+    fat: 0.5, acid: 0.0, moisture: 0.5, density: 0.8, isMeat: true,
+    tags: ["Base", "Meat"],
+    idealBaseTime: 12,
+    timeModifier: 0,
+    minSafeTime: 5,
+    safetyWarning: "Undercooked Beef! While rare is okay, this is too raw."
+  },
+  eggs: {
+    name: "Eggs", emoji: "🍳",
+    fat: 0.3, acid: 0.0, moisture: 0.8, density: 0.2, isMeat: false,
+    tags: ["Base", "Veg"],
+    idealBaseTime: 4,
+    timeModifier: 0
+  },
 
   // Acids
   lemon: {
@@ -90,7 +106,7 @@ const LEVELS = [
     id: 0,
     title: "Level 1 – Simple Cooking",
     description: "Pick a base ingredient. Set the timer to match its ideal cooking time.",
-    availableIngredients: ["chicken", "tofu", "oil", "butter"],
+    availableIngredients: ["chicken", "tofu", "beef", "eggs", "oil", "butter"],
     constraint: null,
     requiredTags: []
   },
@@ -98,32 +114,31 @@ const LEVELS = [
     id: 1,
     title: "Level 2 – Introducing Acidity",
     description: "Balance is key. Use an Acid to cut through the fat.",
-    availableIngredients: ["chicken", "tofu", "oil", "butter", "lemon", "vinegar", "orange", "tomato"],
+    availableIngredients: ["chicken", "tofu", "beef", "eggs", "oil", "butter", "lemon", "vinegar", "orange", "tomato"],
     constraint: null,
-    requiredTags: ["Acid"] // Must use one of: Lemon, Vinegar, Orange, Tomato
+    requiredTags: ["Acid"]
   },
   {
     id: 2,
     title: "Level 3 – Moisture & Time",
     description: "Moisture slows down cooking. Add some veggies or liquids!",
-    availableIngredients: ["tofu", "mushroom", "tomato", "spinach", "oil", "butter"],
+    availableIngredients: ["tofu", "beef", "eggs", "mushroom", "tomato", "spinach", "oil", "butter"],
     constraint: null,
-    requiredTags: ["Moisture"] // Must use: Mushroom, Spinach (Tomato doesn't have Moisture tag explicitly? Added it now to logic?) No, Tomato is Veg/Acid. Let's rely on Mushroom/Spinach being the core lesson. Or update Tomato tags? Let's leave Tomato as Veg/Acid and see if user figures it out. Or user said 'add something in addition to mushrooms...'. Spinach is good. 
-    // Wait, let's make Tomato have Moisture tag too? No, it's redundant.
+    requiredTags: ["Moisture"]
   },
   {
     id: 3,
     title: "Level 4 – Vegetarian Chef",
     description: "Your dish must be vegetarian. No meat allowed!",
-    availableIngredients: ["chicken", "tofu", "mushroom", "tomato", "spinach", "oil", "lemon", "orange"],
+    availableIngredients: ["tofu", "eggs", "mushroom", "tomato", "spinach", "oil", "lemon", "orange"],
     constraint: "vegetarian",
-    requiredTags: [] // Vegetarian is a negative constraint
+    requiredTags: []
   },
   {
     id: 4,
     title: "Level 5 – Light & Healthy",
     description: "Keep fat low (< 40%) while aiming for perfection.",
-    availableIngredients: ["chicken", "tofu", "mushroom", "tomato", "spinach", "oil", "lemon", "vinegar"],
+    availableIngredients: ["chicken", "tofu", "beef", "eggs", "mushroom", "tomato", "spinach", "oil", "lemon", "vinegar"],
     constraint: "lowfat",
     requiredTags: []
   },
