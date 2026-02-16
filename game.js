@@ -1,5 +1,5 @@
 // ── Version Verification ──────────────────────────────────────────────
-console.log("First Kitchen v4.0 - Ease of Use Initialized");
+console.log("First Kitchen v5.0 - Safety First Initialized");
 
 // ── Helpers ──────────────────────────────────────────────────────────
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -35,11 +35,7 @@ function computeOutcome() {
 
   // Calculate Target Time (Base + Modifiers)
   let timeModifier = 0;
-  for (const id of selectedSupports) {
-    timeModifier += INGREDIENTS[id].timeModifier || 0;
-  }
-
-  // Clamp target between 5 and MAX-5 to keep it playable
+  for (const id of selectedSupports) timeModifier += INGREDIENTS[id].timeModifier || 0;
   const targetTime = clamp(base.idealBaseTime + timeModifier, 5, MAX_COOK_TIME - 5);
 
   // Properties
@@ -49,27 +45,29 @@ function computeOutcome() {
   const moisture_total = avg("moisture");
 
   const t = cookingTime;
+  let safetyFailure = null;
 
-  // ── New Easier Scoring Logic ──
-  // Formula: Perfect window of +/- 2 minutes gives 100%.
-  // Outside that, score decays by 5% per minute.
+  // SAFETY CHECK: Undercooked Meat
+  if (base.minSafeTime && t < base.minSafeTime) {
+    safetyFailure = base.safetyWarning || "Undercooked! Unsafe to eat.";
+  }
 
+  // Scoring Logic
   const calcScore = (target) => {
     const error = Math.abs(t - target);
     if (error <= 2) return 1.0;
     return Math.max(0, 1.0 - (error - 2) * 0.05);
   };
 
-  // Doneness: Peaks at targetTime
-  const doneness = calcScore(targetTime);
+  // Doneness: 
+  // If safety failure -> Doneness is 0 automatically.
+  let doneness = safetyFailure ? 0 : calcScore(targetTime);
 
-  // Taste: Balance of fat and acid (unchanged)
+  // Taste: Balance + Doneness
   const balance = clamp(1 - Math.abs(fat_total - acid_total), 0, 1);
   const taste = clamp(0.6 * balance + 0.4 * doneness, 0, 1);
 
-  // Texture: Peaks near targetTime but shifted by moisture
-  // More moisture -> needs more time (+ up to 2.5m)
-  // Less moisture -> needs less time (- up to 2.5m)
+  // Texture: 
   const textureOffset = (moisture_total - 0.5) * 5;
   const textureTarget = targetTime + textureOffset;
   const texture = calcScore(textureTarget);
@@ -86,19 +84,20 @@ function computeOutcome() {
 
   // Star Calculation
   let stars = 0;
-  if (taste >= 0.85) stars++;
-  if (texture >= 0.85) stars++;
-  if (doneness >= 0.85) stars++;
+  if (!safetyFailure && constraintPassed) {
+    if (taste >= 0.85) stars++;
+    if (texture >= 0.85) stars++;
+    if (doneness >= 0.85) stars++;
+  } else {
+    stars = 0; // Fail if unsafe or constraint broken
+  }
 
-  // Hard fail if constraint failed
-  if (!constraintPassed) stars = 0;
-
-  return { taste, texture, doneness, stars, constraintPassed, targetTime };
+  return { taste, texture, doneness, stars, constraintPassed, targetTime, safetyFailure };
 }
 
 function checkWin(outcome) {
   if (!outcome) return false;
-  return outcome.stars >= 2 && outcome.constraintPassed;
+  return outcome.stars >= 2 && outcome.constraintPassed && !outcome.safetyFailure;
 }
 
 // ── Rendering ────────────────────────────────────────────────────────
@@ -151,7 +150,6 @@ function renderMenu(app) {
   let gridHtml = '<div class="level-grid">';
 
   LEVELS.forEach((level, idx) => {
-    const prevLevelStars = levelStars[idx - 1];
     const isUnlocked = idx === 0 || (levelStars[idx - 1] >= 2);
     const earnedStars = levelStars[idx] || 0;
 
@@ -220,7 +218,6 @@ function renderPlay(app) {
   // Hint Logic
   let hintHtml = '';
   if (showingHint && selectedBase) {
-    // Avoid recomputing entire outcome just for target, simpler:
     let timeModifier = 0;
     for (const id of selectedSupports) timeModifier += INGREDIENTS[id].timeModifier || 0;
     const target = clamp(INGREDIENTS[selectedBase].idealBaseTime + timeModifier, 5, MAX_COOK_TIME - 5);
@@ -228,15 +225,15 @@ function renderPlay(app) {
     const diff = cookingTime - target;
     const absDiff = Math.abs(diff);
 
-    let arrowDir = diff < 0 ? '→' : '←'; // Need more time? Right. Less? Left.
-    let arrowColor = '#22c55e'; // Green
+    let arrowDir = diff < 0 ? '→' : '←';
+    let arrowColor = '#22c55e';
     let arrowSize = '1.2rem';
 
     if (absDiff <= 2) {
       hintHtml = `<div class="hint-box success">✅ Good!</div>`;
     } else {
-      if (absDiff > 10) { arrowColor = '#ef4444'; arrowSize = '2rem'; } // Red Big
-      else if (absDiff > 5) { arrowColor = '#eab308'; arrowSize = '1.6rem'; } // Yellow Med
+      if (absDiff > 10) { arrowColor = '#ef4444'; arrowSize = '2rem'; }
+      else if (absDiff > 5) { arrowColor = '#eab308'; arrowSize = '1.6rem'; }
 
       hintHtml = `
         <div class="hint-arrow" style="color: ${arrowColor}; font-size: ${arrowSize}">
@@ -320,9 +317,10 @@ function renderResult(app) {
   };
 
   let feedback = "";
-  if (outcome.stars === 3) feedback = "Perfection! A true chef's kiss. 👨‍🍳";
-  else if (outcome.stars === 2) feedback = "Delicious! Good enough to serve.";
+  if (outcome.safetyFailure) feedback = outcome.safetyFailure;
   else if (!outcome.constraintPassed) feedback = "Dish failed: Dietary constraint not met!";
+  else if (outcome.stars === 3) feedback = "Perfection! A true chef's kiss. 👨‍🍳";
+  else if (outcome.stars === 2) feedback = "Delicious! Good enough to serve.";
   else feedback = "Undercooked or unbalanced. Check your timing and ingredients.";
 
   let html = `
@@ -339,7 +337,8 @@ function renderResult(app) {
           ${renderBar('Doneness', outcome.doneness, outcome.doneness >= 0.85)}
         </div>
         
-        ${!outcome.constraintPassed ? `<div class="constraint-fail">⚠️ Failed Constraint: ${level.constraint}</div>` : ''}
+        ${outcome.safetyFailure ? `<div class="constraint-fail">🚫 ${outcome.safetyFailure}</div>` : ''}
+        ${!outcome.constraintPassed && !outcome.safetyFailure ? `<div class="constraint-fail">⚠️ Failed Constraint: ${level.constraint}</div>` : ''}
 
         <div class="feedback">
            <p>${feedback}</p>
@@ -404,8 +403,7 @@ window.updateTime = (val) => {
     label.style.color = timeColor;
   }
 
-  // Update hint in real-time if visible
-  if (showingHint) render(); // Re-render to update hint arrow
+  if (showingHint) render();
 };
 
 window.toggleHint = () => {

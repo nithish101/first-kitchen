@@ -8,7 +8,9 @@ const INGREDIENTS = {
     fat: 0.4, acid: 0.0, moisture: 0.6, density: 0.6, isMeat: true,
     tags: ["Base", "Meat"],
     idealBaseTime: 25, // Minutes
-    timeModifier: 0
+    timeModifier: 0,
+    minSafeTime: 20, // Must cook for at least 20m
+    safetyWarning: "Undercooked Chicken! High risk of Salmonella."
   },
   tofu: {
     name: "Tofu", emoji: "🧈",
@@ -22,28 +24,28 @@ const INGREDIENTS = {
     fat: 0.0, acid: 0.9, moisture: 0.4, density: 0.1, isMeat: false,
     tags: ["Acid"],
     idealBaseTime: 0,
-    timeModifier: 0 // Just flavor
+    timeModifier: 0
   },
   oil: {
     name: "Oil", emoji: "🫒",
     fat: 0.9, acid: 0.0, moisture: 0.0, density: 0.1, isMeat: false,
     tags: ["Fat"],
     idealBaseTime: 0,
-    timeModifier: -2 // Conducts heat, speeds up cooking (subtracts minutes)
+    timeModifier: -2
   },
   tomato: {
     name: "Tomato", emoji: "🍅",
     fat: 0.0, acid: 0.6, moisture: 0.7, density: 0.2, isMeat: false,
     tags: ["Veg", "Acid"],
     idealBaseTime: 0,
-    timeModifier: 5 // High moisture slows browning (adds minutes)
+    timeModifier: 5
   },
   mushroom: {
     name: "Mushroom", emoji: "🍄",
     fat: 0.1, acid: 0.1, moisture: 0.8, density: 0.3, isMeat: false,
     tags: ["Veg"],
     idealBaseTime: 0,
-    timeModifier: 3 // Spongy, absorbs heat
+    timeModifier: 3
   },
 };
 

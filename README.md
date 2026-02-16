@@ -1,46 +1,43 @@
-# First Kitchen — Cooking Game Prototype
+# First Kitchen — Cooking Game
 
-A small, playable web game designed to demonstrate how players construct mental models of cooking principles (ingredient roles and cooking time interactions) through experimentation.
+**Master the art of heat, ingredients, and timing.**
+
+First Kitchen is an interactive cooking game where you learn by experimenting. There are no recipes—only logic. Can you find the perfect balance?
 
 ## 🚀 Live Demo
-**[Play First Kitchen here!](https://nithish101.github.io/first-kitchen/)**
+**[Play First Kitchen](https://nithish101.github.io/first-kitchen/)**
 
 ![First Kitchen Logo](https://img.shields.io/badge/First-Kitchen-fbbf24?style=for-the-badge&logo=chef)
 
-## 🍳 Overview
-"First Kitchen" is an educational prototype that focuses on cognitive learning rather than memorization. Players experiment with base ingredients, support ingredients, and cooking times to achieve the perfect balance of taste, texture, and doneness.
+## 🍳 How to Play
 
-### New in v4.0: Ease of Use Update
--   **Realistic Time**: Set cooking time in **Minutes** (0-30m) instead of abstract ratios.
--   **Easier Scoring**: Hit the **perfect window (±2 mins)** for 100%. Miss by a little? Still pass!
--   **Hint System**: Stuck? Click the **💡 Hint Button** for guidance.
--   **Clarity**: Ingredients are tagged (Base, Acid, Fat) to help you learn.
+### 1. The Kitchen
+Select a **Base Ingredient** (like Chicken 🍗 or Tofu 🧈) to start your dish. Each ingredient has unique properties:
+-   **Fat**: Adds richness but needs balance.
+-   **Acid**: Brightens flavors (Lemon 🍋, Tomato 🍅).
+-   **Moisture**: Affects texture and cooking speed.
+-   **Density**: Determines how long it takes to cook.
 
-### Learning Objectives
-1.  **Understand Interactions**: Recognize how ingredient properties (fat, acid, moisture, density) interact with cooking time.
-2.  **Strategic Adjustment**: Learn to adjust inputs based on previous outcomes.
-3.  **Mental Model Construction**: Build an internal model of balance (fat vs. acid), moisture-time relationships, and specific dietary constraints.
+### 2. Cooking Time
+Use the slider (0–30 Minutes) to set your cooking time.
+-   **Strategic Timing**: Different bases need different times.
+-   **Modifiers**: Adding Oil might speed things up; adding Tomatoes might slow them down.
+-   **Safety First**: Be careful! Undercooking meat (like Chicken) can lead to food poisoning and instant failure. 🚫
 
-## 🎮 Gameplay Loop
-1.  **Select Base**: Pick exactly one base ingredient (e.g., Chicken 🍗, Tofu 🧈).
-2.  **Add Support**: choose optional support ingredients (e.g., Lemon 🍋, Oil 🫒) to balance the dish.
-3.  **Adjust Time**: Drag the clock hand or slider to set the Minutes. Watch the background shift from cool to hot!
-4.  **Cook**: Evaluate the results via four outcome bars (Taste, Texture, Doneness, and Constraints).
-5.  **Iterate**: Adjust and retry until you score **≥ 2 Stars** to unlock the next level.
+### 3. The Result
+After cooking, you'll be judged on four metrics:
+-   **Taste**: Is the Fat/Acid balance correct?
+-   **Texture**: Did you cook it long enough for the moisture content?
+-   **Doneness**: Is it raw, perfect, or burnt? 
+-   **Dietary Constraints**: Does it meet the level's specific rule (e.g., Vegetarian)?
 
-## 🛠️ Tech Stack
--   **HTML5 / CSS3**: Vanilla structure and styling with a modern dark theme and CSS animations.
--   **JavaScript (ES6)**: No frameworks, pure logic for outcome computation, state machine, and drag interactions.
--   **GitHub Pages**: Hosted as a static site.
+### 4. Scoring
+Earn up to **3 Stars** ⭐ per level.
+-   **Pass**: You need at least **2 Stars** to unlock the next level.
+-   **Perfect Window**: Get within **±2 minutes** of the ideal time for a perfect score.
 
-## 📂 Project Structure
--   `index.html`: Main page structure.
--   `style.css`: Visual design, animations, and responsive layout.
--   `game.js`: Core game logic, state machine, and progression system.
--   `data.js`: Ingredient stats and level definitions.
+## 💡 Need a Hint?
+Stuck on a level? Click the **💡 Lightbulb** button next to the timer. A dynamic arrow will guide you toward the perfect cooking time.
 
-## 📜 Educational Context
-This prototype was developed following cognitive learning principles:
--   **Knowledge Construction**: No recipes or instructions are provided; players learn by doing.
--   **Active Learning**: Mastery comes through direct experimentation.
--   **Zone of Proximal Development (ZPD)**: Scaffolding through 5 levels, each introducing new variables or constraints.
+## 🛠️ Technology
+Built with vanilla **HTML5**, **CSS3**, and **JavaScript**. No frameworks, just pure logic and physics-based interactions.
