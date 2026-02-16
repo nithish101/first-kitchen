@@ -1,5 +1,5 @@
 // ── Version Verification ──────────────────────────────────────────────
-console.log("First Kitchen v5.0 - Safety First Initialized");
+console.log("First Kitchen v6.0 - Level Goals Initialized");
 
 // ── Helpers ──────────────────────────────────────────────────────────
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -32,6 +32,7 @@ function computeOutcome() {
   if (ingredients.length === 0) return null;
 
   const base = INGREDIENTS[selectedBase];
+  const level = LEVELS[currentLevelIndex];
 
   // Calculate Target Time (Base + Modifiers)
   let timeModifier = 0;
@@ -50,6 +51,24 @@ function computeOutcome() {
   // SAFETY CHECK: Undercooked Meat
   if (base.minSafeTime && t < base.minSafeTime) {
     safetyFailure = base.safetyWarning || "Undercooked! Unsafe to eat.";
+  }
+
+  // REQUIREMENT CHECK: Level Tags
+  let missingRequiredTag = null;
+  if (level.requiredTags && level.requiredTags.length > 0) {
+    const allTags = new Set();
+    // Gather all tags from selected ingredients
+    ingredients.forEach(ing => {
+      if (ing.tags) ing.tags.forEach(tag => allTags.add(tag));
+    });
+
+    // Check requirements
+    for (const req of level.requiredTags) {
+      if (!allTags.has(req)) {
+        missingRequiredTag = req;
+        break;
+      }
+    }
   }
 
   // Scoring Logic
@@ -74,31 +93,29 @@ function computeOutcome() {
   const texture = calcScore(textureTarget);
 
   // Constraint Check
-  const level = LEVELS[currentLevelIndex];
   let constraintPassed = true;
   if (level.constraint === "vegetarian") {
-    const allSelected = [selectedBase, ...selectedSupports];
-    constraintPassed = !allSelected.some((id) => INGREDIENTS[id].isMeat);
+    constraintPassed = !ingredients.some((ing) => ing.isMeat);
   } else if (level.constraint === "lowfat") {
     constraintPassed = fat_total < 0.4;
   }
 
   // Star Calculation
   let stars = 0;
-  if (!safetyFailure && constraintPassed) {
+  if (!safetyFailure && !missingRequiredTag && constraintPassed) {
     if (taste >= 0.85) stars++;
     if (texture >= 0.85) stars++;
     if (doneness >= 0.85) stars++;
   } else {
-    stars = 0; // Fail if unsafe or constraint broken
+    stars = 0; // Fail if broken
   }
 
-  return { taste, texture, doneness, stars, constraintPassed, targetTime, safetyFailure };
+  return { taste, texture, doneness, stars, constraintPassed, targetTime, safetyFailure, missingRequiredTag };
 }
 
 function checkWin(outcome) {
   if (!outcome) return false;
-  return outcome.stars >= 2 && outcome.constraintPassed && !outcome.safetyFailure;
+  return outcome.stars >= 2 && outcome.constraintPassed && !outcome.safetyFailure && !outcome.missingRequiredTag;
 }
 
 // ── Rendering ────────────────────────────────────────────────────────
@@ -245,6 +262,13 @@ function renderPlay(app) {
   const rotation = (cookingTime / MAX_COOK_TIME) * 360;
   const timeColor = cookingTime < 10 ? '#3b82f6' : (cookingTime > 20 ? '#ef4444' : '#f59e0b');
 
+  // Goals
+  let goalHtml = '';
+  if (level.requiredTags && level.requiredTags.length > 0) {
+    const goals = level.requiredTags.map(t => `<span class="tag-req">${t}</span>`).join(' + ');
+    goalHtml = `<div class="goal-pill">⚠️ Goal: Add ${goals}</div>`;
+  }
+
   app.innerHTML = `
     <div class="screen play-screen">
       <header class="play-header">
@@ -252,6 +276,7 @@ function renderPlay(app) {
         <div class="level-text">
           <h3>${level.title}</h3>
           <p>${level.description}</p>
+          ${goalHtml}
         </div>
       </header>
       
@@ -298,7 +323,7 @@ function renderResult(app) {
   const won = checkWin(outcome);
   const level = LEVELS[currentLevelIndex];
 
-  if (outcome.stars > (levelStars[currentLevelIndex] || 0)) {
+  if (won && outcome.stars > (levelStars[currentLevelIndex] || 0)) {
     levelStars[currentLevelIndex] = outcome.stars;
     saveProgress();
   }
@@ -318,6 +343,7 @@ function renderResult(app) {
 
   let feedback = "";
   if (outcome.safetyFailure) feedback = outcome.safetyFailure;
+  else if (outcome.missingRequiredTag) feedback = `Missing Goal: You must include an ingredient with the "${outcome.missingRequiredTag}" tag!`;
   else if (!outcome.constraintPassed) feedback = "Dish failed: Dietary constraint not met!";
   else if (outcome.stars === 3) feedback = "Perfection! A true chef's kiss. 👨‍🍳";
   else if (outcome.stars === 2) feedback = "Delicious! Good enough to serve.";
@@ -338,7 +364,8 @@ function renderResult(app) {
         </div>
         
         ${outcome.safetyFailure ? `<div class="constraint-fail">🚫 ${outcome.safetyFailure}</div>` : ''}
-        ${!outcome.constraintPassed && !outcome.safetyFailure ? `<div class="constraint-fail">⚠️ Failed Constraint: ${level.constraint}</div>` : ''}
+        ${outcome.missingRequiredTag ? `<div class="constraint-fail">⚠️ Missing: ${outcome.missingRequiredTag}</div>` : ''}
+        ${!outcome.constraintPassed && !outcome.safetyFailure && !outcome.missingRequiredTag ? `<div class="constraint-fail">⚠️ Failed Constraint: ${level.constraint}</div>` : ''}
 
         <div class="feedback">
            <p>${feedback}</p>
