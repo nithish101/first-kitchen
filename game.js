@@ -82,10 +82,15 @@ function computeOutcome() {
   // If safety failure -> Doneness is 0 automatically.
   let doneness = safetyFailure ? 0 : calcScore(targetTime);
 
-  // Taste: Balance + Doneness
-  // New Formula: Balance penalty reduced by 50% to make high scores easier
+  // Taste: Balance + Doneness + Variety Bonus
+  // Incentive: More ingredients = higher potential score.
+  // 0 Supports -> Max 0.8 (2 Stars).
+  // 1 Support -> Max 0.9 (3 Stars possible).
+  // 2+ Supports -> Max 1.0+ (Easier 3 Stars).
+  const varietyMultiplier = 0.8 + Math.min(0.4, selectedSupports.size * 0.1);
   const balance = clamp(1 - Math.abs(fat_total - acid_total) * 0.5, 0, 1);
-  const taste = clamp(0.6 * balance + 0.4 * doneness, 0, 1);
+  const baseTaste = 0.6 * balance + 0.4 * doneness;
+  const taste = clamp(baseTaste * varietyMultiplier, 0, 1);
 
   // Texture: 
   const textureOffset = (moisture_total - 0.5) * 5;
