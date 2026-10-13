@@ -2,10 +2,14 @@
 
 **Master the art of heat, ingredients, and timing.**
 
+**[Play Now](https://nithish101.github.io/first-kitchen/)**
+
 First Kitchen is an interactive cooking game where you learn by experimenting. There are no recipes—only logic. Can you find the perfect balance?
 
-## 🚀 Live Demo
-**[Play First Kitchen](https://nithish101.github.io/first-kitchen/)**
+| | |
+|---|---|
+| ![Level 2, Introducing Acidity: chicken, oil and lemon in the skillet, the timer at 21 minutes with the hint showing a check mark, and the pantry of bases, fats and acids below](docs/screenshots/play.png) | ![Level complete with three stars: Taste 96%, Texture 96%, Doneness 100%, target time about 23 minutes](docs/screenshots/result.png) |
+| Pick ingredients and set the cooking time | Scored on taste, texture and doneness |
 
 ![First Kitchen Logo](https://img.shields.io/badge/First-Kitchen-fbbf24?style=for-the-badge&logo=chef)
 
